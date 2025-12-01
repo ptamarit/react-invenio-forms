@@ -74,6 +74,7 @@ function getRequestId() {
   return url.substring(start, end);
 }
 
+// TODO: This is for images only.
 const uploadHandler = (blobInfo, progress) => new Promise((resolve, reject) => {
   console.log("uploadHandler");
   const xhr = new XMLHttpRequest();
@@ -109,7 +110,7 @@ const uploadHandler = (blobInfo, progress) => new Promise((resolve, reject) => {
 
     // resolve(json.location);
     // TODO: No API endpoint and add UUID.
-    resolve(`/api/requests/${getRequestId()}/files/${filename}/content`);
+    resolve(`/api/requests/${getRequestId()}/files/${json.key}/content`);
   };
 
   xhr.onerror = () => {
@@ -245,7 +246,8 @@ function filePickerCallback(callback, value, meta) {
           /* call the callback and populate the Title field with the file name */
           // callback(blobInfo.blobUri(), { title: file.name });
           // TODO: No API endpoint and add UUID.
-          callback(`/api/requests/${getRequestId()}/files/${filename}/content`, { text: filename, title: "Download the attached file content" });
+          // TODO: Removed: `title: "Download the attached file content"`
+          callback(`/api/requests/${getRequestId()}/files/${json.key}/content`, { text: json.original_filename });
         };
 
         xhr.onerror = () => {
@@ -308,6 +310,14 @@ export class RichEditor extends Component {
         "wordcount",
         // "help",
         "media"
+      ],
+      image_list: [
+        { title: 'cern.png', value: '/api/requests/18b40ce5-491c-45eb-8db9-1fddb81b8394/files/cern.png/content' },
+        { title: 'zenodo.png', value: '/api/requests/18b40ce5-491c-45eb-8db9-1fddb81b8394/files/zenodo.png/content' },
+      ],
+      link_list: [
+        { title: 'demo.txt', value: '/api/requests/18b40ce5-491c-45eb-8db9-1fddb81b8394/files/jaz62-e6a21-demo.txt/content' },
+        { title: 'demo.zip', value: '/api/requests/18b40ce5-491c-45eb-8db9-1fddb81b8394/files/8gs26-gdy39-demo.zip/content' },
       ],
       contextmenu: false,
       toolbar:
