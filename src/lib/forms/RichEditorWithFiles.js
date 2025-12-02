@@ -1,0 +1,412 @@
+// This file is part of React-Invenio-Forms
+// Copyright (C) 2022 CERN.
+// Copyright (C) 2020 Northwestern University.
+// Copyright (C) 2024 KTH Royal Institute of Technology.
+//
+// React-Invenio-Forms is free software; you can redistribute it and/or modify it
+// under the terms of the MIT License; see LICENSE file for more details.
+import React, { Component } from "react";
+import { Editor } from "@tinymce/tinymce-react";
+import "tinymce/tinymce";
+import "tinymce/models/dom/model";
+import "tinymce/themes/silver";
+import "tinymce/icons/default";
+import "tinymce/plugins/table";
+import "tinymce/plugins/autoresize";
+import "tinymce/plugins/code";
+import "tinymce/plugins/codesample";
+import "tinymce/plugins/image";
+import "tinymce/plugins/link";
+import "tinymce/plugins/lists";
+import "tinymce/plugins/wordcount";
+import PropTypes from "prop-types";
+import { ButtonGroup, Button, Icon, Label } from 'semantic-ui-react'
+
+// function from https://www.w3schools.com/js/js_cookies.asp
+function getCookie(cname) {
+  let name = cname + "=";
+  let decodedCookie = decodeURIComponent(document.cookie);
+  let ca = decodedCookie.split(";");
+  for (let i = 0; i < ca.length; i++) {
+    let c = ca[i];
+    while (c.charAt(0) == " ") {
+      c = c.substring(1);
+    }
+    if (c.indexOf(name) == 0) {
+      return c.substring(name.length, c.length);
+    }
+  }
+  return "";
+}
+
+// TODO: Hacky method for prototype. Pass this via props/state.
+function getRequestId() {
+  const prefix = "/requests/";
+  const url = window.location.href;
+  const index = url.indexOf(prefix);
+  const start = index + prefix.length;
+  const end = start + 36;
+  return url.substring(start, end);
+}
+
+// The https://www.tiny.cloud/docs/tinymce/latest/tinydrive-introduction/ plugin enable the insertfile icon.
+
+// We might have to go for a custom plugin: https://www.tiny.cloud/docs/tinymce/latest/creating-a-plugin/
+
+// https://www.tiny.cloud/docs/tinymce/latest/custom-toolbarbuttons/
+
+
+export class RichEditorWithFiles extends Component {
+  constructor(props) {
+    super(props);
+    this.state = { files: [] };
+  }
+
+  addFileToList = (json) => {
+    this.setState({
+      files: [
+        ...this.state.files,
+        json,
+      ]
+    });
+  };
+
+  removeFileFromList = (fileKey) => {
+    this.setState({
+      files: this.state.files.filter(file => file.key !== fileKey)
+    });
+  };
+
+  /**
+   * This function is called when a user drag-n-drops an image onto the editor text area.
+   */
+  imagesUploadHandler = (blobInfo, progress) => new Promise((resolve, reject) => {
+    console.log("imagesUploadHandler");
+    const xhr = new XMLHttpRequest();
+    // xhr.withCredentials = true; // TODO: Needed?
+    const filename = blobInfo.filename();
+    // TODO: Use axios to include the CSRF token automatically?
+    xhr.open('PUT', `/api/requests/${getRequestId()}/files/upload/${filename}`);
+    xhr.setRequestHeader("X-CSRFToken", getCookie("csrftoken"));
+    // xhr.setRequestHeader('X-CSRF-TOKEN', window.csrfToken); // manually set header
+
+    xhr.upload.onprogress = (e) => {
+      progress(e.loaded / e.total * 100);
+    };
+
+    xhr.onload = () => {
+      if (xhr.status === 403) {
+        reject({ message: 'HTTP Error: ' + xhr.status, remove: true });
+        return;
+      }
+
+      if (xhr.status < 200 || xhr.status >= 300) {
+        reject('HTTP Error: ' + xhr.status);
+        return;
+      }
+
+      const json = JSON.parse(xhr.responseText);
+
+      // if (!json || typeof json.location != 'string') {
+      if (!json) {
+        reject('Invalid JSON: ' + xhr.responseText);
+        return;
+      }
+
+      this.addFileToList(json);
+
+      // TODO: Do not use the API endpoint.
+      resolve(`/api/requests/${getRequestId()}/files/${json.key}/content`);
+    };
+
+    xhr.onerror = () => {
+      reject('Image upload failed due to a XHR Transport error. Code: ' + xhr.status);
+    };
+
+    // const formData = new FormData();
+    // formData.append('file', blobInfo.blob(), blobInfo.filename());
+    // xhr.send(formData);
+
+    // As in https://inveniordm.docs.cern.ch/reference/rest_api_drafts_records/#upload-a-draft-files-content
+    // The content-type should always be `application/octet-stream`.
+
+    xhr.setRequestHeader("Content-Type", "application/octet-stream")
+    const blob = blobInfo.blob();
+    xhr.send(blob);
+  });
+
+  /**
+   * This function is called when a choses to upload a fuser drag-n-drops an image onto the editor text area.
+   */
+
+//  custom file picker to those dialogs that have it.
+//  small browse button will appear along the fields of supported file types (see file_picker_types).
+// When user clicks the button
+
+  filePickerCallback = (callback, value, meta) => {
+    console.log("filePickerCallback");
+
+    // this.addFileToList({"key": "test.txt"})
+
+    const localRefToAddFileToList = this.addFileToList;
+
+
+      var input = document.createElement('input');
+      input.setAttribute('type', 'file');
+      // If the file picker is called from the Image dialog, only allow to upload images (allow everything from the Link dialog).
+      if (meta.filetype == 'image') {
+        input.setAttribute('accept', 'image/*');
+      }
+
+      // 
+
+      /*
+        Note: In modern browsers input[type="file"] is functional without
+        even adding it to the DOM, but that might not be the case in some older
+        or quirky browsers like IE, so you might want to add it to the DOM
+        just in case, and visually hide it. And do not forget do remove it
+        once you do not need it anymore.
+      */
+
+      // input.onchange = function () {
+      input.onchange = (event) => {
+        var file = event.target.files[0];
+        const filename = file.name;
+
+        var reader = new FileReader();
+        reader.onload = function () {
+          /*
+            Note: Now we need to register the blob in TinyMCEs image blob
+            registry. In the next release this part hopefully won't be
+            necessary, as we are looking to handle it internally.
+          */
+          // var id = 'blobid' + (new Date()).getTime();
+          // var blobCache =  tinymce.activeEditor.editorUpload.blobCache;
+          // var base64 = reader.result.split(',')[1];
+          // var blobInfo = blobCache.create(id, file, base64);
+          // blobCache.add(blobInfo);
+
+          /* call the callback and populate the Title field with the file name */
+          //callback("todo.ext", { title: file.name });
+          // cb(blobInfo.blobUri(), { title: file.name });
+
+          const xhr = new XMLHttpRequest();
+          // xhr.withCredentials = true; // TODO: Needed?
+          
+          // TODO: Use axios to include the CSRF token automatically?
+          xhr.open('PUT', `/api/requests/${getRequestId()}/files/upload/${filename}`);
+          xhr.setRequestHeader("X-CSRFToken", getCookie("csrftoken"));
+          // xhr.setRequestHeader('X-CSRF-TOKEN', window.csrfToken); // manually set header
+
+          xhr.onload = () => {
+            if (xhr.status === 403) {
+              reject({ message: 'HTTP Error: ' + xhr.status, remove: true });
+              return;
+            }
+
+            if (xhr.status < 200 || xhr.status >= 300) {
+              reject('HTTP Error: ' + xhr.status);
+              return;
+            }
+
+            const json = JSON.parse(xhr.responseText);
+
+            // if (!json || typeof json.location != 'string') {
+            if (!json) {
+              reject('Invalid JSON: ' + xhr.responseText);
+              return;
+            }
+
+            
+            /* call the callback and populate the Title field with the file name */
+            // callback(blobInfo.blobUri(), { title: file.name });
+            // TODO: No API endpoint and add UUID.
+            // TODO: Removed: `title: "Download the attached file content"`
+            // this.setState({
+            //   files: [
+            //     // ...this.state.files,
+            //     json,
+            //   ]
+            // });
+            localRefToAddFileToList(json);
+
+            // TODO: Do not use the API endpoint.
+            const location = `/api/requests/${getRequestId()}/files/${json.key}/content`;
+            if (meta.filetype == 'file') {
+              callback(location, { text: json.original_filename });
+            } else if (meta.filetype == 'image') {
+              callback(location, { alt: `Description of ${json.original_filename}` });
+            } else {
+              // This should not happen, since `file_picker_types` is set to only support `file` and `image`.
+              callback(location);
+            }
+          };
+
+          xhr.onerror = () => {
+            reject('Image upload failed due to a XHR Transport error. Code: ' + xhr.status);
+          };
+
+          // const formData = new FormData();
+          // formData.append('file', blobInfo.blob(), blobInfo.filename());
+          // xhr.send(formData);
+
+          // As in https://inveniordm.docs.cern.ch/reference/rest_api_drafts_records/#upload-a-draft-files-content
+          // The content-type should always be `application/octet-stream`.
+
+          xhr.setRequestHeader("Content-Type", "application/octet-stream")
+          const blob = reader.result;
+          xhr.send(blob);
+        };
+        //reader.readAsDataURL(file);
+        reader.readAsArrayBuffer(file);
+      };
+      input.click();
+
+    // TODO: Check https://www.tiny.cloud/docs/tinymce/latest/file-image-upload/#interactive-example
+  };
+
+  
+  deleteFile = (fileKey) => {
+    console.log("deleteFile");
+    const xhr = new XMLHttpRequest();
+    // xhr.withCredentials = true; // TODO: Needed?
+    // TODO: Use axios to include the CSRF token automatically?
+    xhr.open('DELETE', `/api/requests/${getRequestId()}/files/${fileKey}`);
+    xhr.setRequestHeader("X-CSRFToken", getCookie("csrftoken"));
+    // xhr.setRequestHeader('X-CSRF-TOKEN', window.csrfToken); // manually set header
+
+    xhr.onload = () => {
+      if (xhr.status === 403) {
+        console.error({ message: 'HTTP Error: ' + xhr.status, remove: true });
+        return;
+      }
+
+      if (xhr.status < 200 || xhr.status >= 300) {
+        console.error('HTTP Error: ' + xhr.status);
+        return;
+      }
+
+      this.removeFileFromList(fileKey);
+    };
+
+    xhr.onerror = () => {
+      console.error('File deletion failed due to a XHR Transport error. Code: ' + xhr.status);
+    };
+
+    xhr.send();
+  };
+
+  render() {
+    const {
+      id,
+      initialValue,
+      disabled,
+      minHeight,
+      onBlur,
+      onChange,
+      onFocus,
+      editorConfig,
+      inputValue,
+      onEditorChange,
+      onInit,
+    } = this.props;
+    const config = {
+      branding: false,
+      menubar: false,
+      statusbar: false,
+      min_height: minHeight,
+      content_style: "body { font-size: 14px; }",
+      plugins: [
+        "autoresize",
+        "code",
+        "codesample",
+        "image",
+        "link",
+        "lists",
+        "table",
+        "wordcount",
+      ],
+      contextmenu: false,
+      toolbar:
+        // "blocks | bold italic link codesample blockquote image table | bullist numlist | outdent indent | wordcount | undo redo | code",
+        // Version with links and images separated:
+        "blocks | bold italic codesample blockquote table | bullist numlist | outdent indent | link image | wordcount | undo redo | code",
+      autoresize_bottom_margin: 20,
+      block_formats: "Paragraph=p; Header 1=h1; Header 2=h2; Header 3=h3",
+      table_advtab: false,
+      convert_urls: false,
+      // automatic_uploads
+      images_reuse_filename: true,
+      // image_title: true,
+      images_upload_handler: this.imagesUploadHandler,
+      // We do not implement the file picker type `media` since we do not enable the Media plugin/button.
+      file_picker_types: 'file image',
+      // file_picker_types: 'image',
+      file_picker_callback: this.filePickerCallback,
+      // TODO: Risk of navigating away from the page containing the editor.
+      // TODO: The images_upload_handler is unfortunately not called for unsupported formats.
+      // block_unsupported_drop: false,
+      image_list: [
+        { title: 'cern.png', value: '/api/requests/18b40ce5-491c-45eb-8db9-1fddb81b8394/files/cern.png/content' },
+        { title: 'zenodo.png', value: '/api/requests/18b40ce5-491c-45eb-8db9-1fddb81b8394/files/zenodo.png/content' },
+      ],
+      link_list: [
+        { title: 'demo.txt', value: '/api/requests/18b40ce5-491c-45eb-8db9-1fddb81b8394/files/jaz62-e6a21-demo.txt/content' },
+        { title: 'demo.zip', value: '/api/requests/18b40ce5-491c-45eb-8db9-1fddb81b8394/files/8gs26-gdy39-demo.zip/content' },
+      ],
+      ...editorConfig,
+    };
+
+    return (
+      <>
+        <Editor
+          initialValue={initialValue}
+          value={inputValue}
+          init={config}
+          id={id}
+          disabled={disabled}
+          onBlur={onBlur}
+          onFocus={onFocus}
+          onChange={onChange}
+          onEditorChange={onEditorChange}
+          onInit={onInit}
+        />
+        {this.state.files.map((file) => (
+          <ButtonGroup key={file.key} floated='left' className="mr-10 mt-10">
+            <Button basic color='grey' icon='file' content={`${file.key} (12.3 MB)`} as='a' href={`/api/requests/${getRequestId()}/files/${file.key}/content`} />
+            <Button color='red' icon='delete' onClick={() => this.deleteFile(file.key)} />
+          </ButtonGroup>
+        ))}
+        <Button basic icon='attach' content='Attach files' className="mt-10" onClick={() => this.filePickerCallback(() => {}, "", "file")} />
+      </>
+    );
+  }
+}
+
+RichEditorWithFiles.propTypes = {
+  initialValue: PropTypes.string,
+  inputValue: PropTypes.string,
+  id: PropTypes.string,
+  disabled: PropTypes.bool,
+  onChange: PropTypes.func,
+  onEditorChange: PropTypes.func,
+  onBlur: PropTypes.func,
+  onFocus: PropTypes.func,
+  onInit: PropTypes.func,
+  minHeight: PropTypes.number,
+  editorConfig: PropTypes.object,
+};
+
+RichEditorWithFiles.defaultProps = {
+  minHeight: 250,
+  initialValue: "",
+  inputValue: "",
+  id: undefined,
+  disabled: undefined,
+  onChange: undefined,
+  onEditorChange: undefined,
+  onBlur: undefined,
+  onFocus: undefined,
+  onInit: undefined,
+  editorConfig: undefined,
+};
