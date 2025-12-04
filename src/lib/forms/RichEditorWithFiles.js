@@ -265,7 +265,6 @@ export class RichEditorWithFiles extends Component {
     // TODO: Check https://www.tiny.cloud/docs/tinymce/latest/file-image-upload/#interactive-example
   };
 
-  
   deleteFile = (fileKey) => {
     console.log("deleteFile");
     const xhr = new XMLHttpRequest();
@@ -295,6 +294,21 @@ export class RichEditorWithFiles extends Component {
 
     xhr.send();
   };
+
+   getImageList = () => {
+    const requestId = getRequestId();
+    // TODO: Filter to keep only images (based on extension?).
+    return this.state.files.map((file) => (
+      {title: file.original_filename, value: `/api/requests/${requestId}/files/${file.key}/content`}
+    ));
+  }
+
+  getLinkList = () => {
+    const requestId = getRequestId();
+    return this.state.files.map((file) => (
+      {title: file.original_filename, value: `/api/requests/${requestId}/files/${file.key}/content`}
+    ));
+  }
 
   render() {
     const {
@@ -346,14 +360,20 @@ export class RichEditorWithFiles extends Component {
       // TODO: Risk of navigating away from the page containing the editor.
       // TODO: The images_upload_handler is unfortunately not called for unsupported formats.
       // block_unsupported_drop: false,
-      image_list: [
-        { title: 'cern.png', value: '/api/requests/18b40ce5-491c-45eb-8db9-1fddb81b8394/files/cern.png/content' },
-        { title: 'zenodo.png', value: '/api/requests/18b40ce5-491c-45eb-8db9-1fddb81b8394/files/zenodo.png/content' },
-      ],
-      link_list: [
-        { title: 'demo.txt', value: '/api/requests/18b40ce5-491c-45eb-8db9-1fddb81b8394/files/jaz62-e6a21-demo.txt/content' },
-        { title: 'demo.zip', value: '/api/requests/18b40ce5-491c-45eb-8db9-1fddb81b8394/files/8gs26-gdy39-demo.zip/content' },
-      ],
+      // image_list: [
+      //   { title: 'cern.png', value: '/api/requests/18b40ce5-491c-45eb-8db9-1fddb81b8394/files/cern.png/content' },
+      //   { title: 'zenodo.png', value: '/api/requests/18b40ce5-491c-45eb-8db9-1fddb81b8394/files/zenodo.png/content' },
+      // ],
+      // link_list: [
+      //   { title: 'demo.txt', value: '/api/requests/18b40ce5-491c-45eb-8db9-1fddb81b8394/files/jaz62-e6a21-demo.txt/content' },
+      //   { title: 'demo.zip', value: '/api/requests/18b40ce5-491c-45eb-8db9-1fddb81b8394/files/8gs26-gdy39-demo.zip/content' },
+      // ],
+      image_list: (success) => {
+        success(this.getImageList());
+      },
+      link_list: (success) => {
+        success(this.getLinkList());
+      },
       ...editorConfig,
     };
 
