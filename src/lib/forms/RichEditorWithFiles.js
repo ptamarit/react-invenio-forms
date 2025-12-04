@@ -20,7 +20,7 @@ import "tinymce/plugins/link";
 import "tinymce/plugins/lists";
 import "tinymce/plugins/wordcount";
 import PropTypes from "prop-types";
-import { ButtonGroup, Button, Icon, Label } from 'semantic-ui-react'
+import { ButtonGroup, Button } from 'semantic-ui-react'
 
 // function from https://www.w3schools.com/js/js_cookies.asp
 function getCookie(cname) {
@@ -59,21 +59,28 @@ function getRequestId() {
 export class RichEditorWithFiles extends Component {
   constructor(props) {
     super(props);
-    this.state = { files: [] };
+    // this.state = { files: [] };
   }
 
   addFileToList = (json) => {
-    this.setState({
-      files: [
-        ...this.state.files,
-        json,
-      ]
-    });
+    // this.setState({
+    //   files: [
+    //     ...this.state.files,
+    //     json,
+    //   ]
+    // });
+    this.props.setFiles([
+      ...this.props.files,
+      json,
+    ]);
   };
 
   removeFileFromList = (fileKey) => {
-    this.setState({
-      files: this.state.files.filter(file => file.key !== fileKey)
+    // this.setState({
+    //   files: this.state.files.filter(file => file.key !== fileKey)
+    // });
+    this.props.setFiles({
+      files: this.props.files.filter(file => file.key !== fileKey)
     });
   };
 
@@ -265,6 +272,15 @@ export class RichEditorWithFiles extends Component {
     // TODO: Check https://www.tiny.cloud/docs/tinymce/latest/file-image-upload/#interactive-example
   };
 
+  copyLink = async (fileKey) => {
+    const requestId = getRequestId();
+    try {
+      await navigator.clipboard.writeText(`/api/requests/${requestId}/files/${fileKey}/content`);
+    } catch (error) {
+      console.error(error.message);
+    }
+  }
+
   deleteFile = (fileKey) => {
     console.log("deleteFile");
     const xhr = new XMLHttpRequest();
@@ -298,16 +314,26 @@ export class RichEditorWithFiles extends Component {
    getImageList = () => {
     const requestId = getRequestId();
     // TODO: Filter to keep only images (based on extension?).
-    return this.state.files.map((file) => (
-      {title: file.original_filename, value: `/api/requests/${requestId}/files/${file.key}/content`}
-    ));
+    // List taken from: https://www.tiny.cloud/docs/tinymce/latest/image/#images_file_types
+    const imageExtensions = ["jpeg", "jpg", "jpe", "jfi", "jif", "jfif", "png", "gif", "bmp", "webp"];
+    const list = this.props.files
+      .filter((file) => {
+        const filename = file.original_filename;
+        const extension = filename.slice(filename.lastIndexOf(".") + 1).toLowerCase();
+        return imageExtensions.includes(extension);
+      })
+      .map((file) => (
+        {title: file.original_filename, value: `/api/requests/${requestId}/files/${file.key}/content`}
+      ));
+    return list.length > 0 ? list : [{title: "NA", value: "NA"}]
   }
 
   getLinkList = () => {
     const requestId = getRequestId();
-    return this.state.files.map((file) => (
+    const list = this.props.files.map((file) => (
       {title: file.original_filename, value: `/api/requests/${requestId}/files/${file.key}/content`}
     ));
+    return list.length > 0 ? list : [{title: "NA", value: "NA"}]
   }
 
   render() {
@@ -321,6 +347,8 @@ export class RichEditorWithFiles extends Component {
       onFocus,
       editorConfig,
       inputValue,
+      files,
+      setFiles,
       onEditorChange,
       onInit,
     } = this.props;
@@ -344,7 +372,7 @@ export class RichEditorWithFiles extends Component {
       toolbar:
         // "blocks | bold italic link codesample blockquote image table | bullist numlist | outdent indent | wordcount | undo redo | code",
         // Version with links and images separated:
-        "blocks | bold italic codesample blockquote table | bullist numlist | outdent indent | link image | wordcount | undo redo | code",
+        "blocks | bold italic codesample blockquote table | bullist numlist | outdent indent | link image attach | wordcount | undo redo | code",
       autoresize_bottom_margin: 20,
       block_formats: "Paragraph=p; Header 1=h1; Header 2=h2; Header 3=h3",
       table_advtab: false,
@@ -374,6 +402,16 @@ export class RichEditorWithFiles extends Component {
       link_list: (success) => {
         success(this.getLinkList());
       },
+      // The separated image upload tab in the Image dialog is a bit redundant with the little upload icon next to the filename.
+      // Moreover, the link plugin does not have a similar tab, so disabling it for consistency.
+      image_uploadtab: false,
+      setup: (editor) => {
+        editor.ui.registry.addButton('attach', {
+          icon: 'browse',
+          tooltip: 'Attach files',
+          onAction: () => this.filePickerCallback(() => {}, "", "file"),
+        });
+      },
       ...editorConfig,
     };
 
@@ -391,10 +429,11 @@ export class RichEditorWithFiles extends Component {
           onEditorChange={onEditorChange}
           onInit={onInit}
         />
-        {this.state.files.map((file) => (
+        {this.props.files.map((file) => (
           <ButtonGroup key={file.key} floated='left' className="mr-10 mt-10">
-            <Button basic color='grey' icon='file' content={`${file.key} (12.3 MB)`} as='a' href={`/api/requests/${getRequestId()}/files/${file.key}/content`} />
-            <Button color='red' icon='delete' onClick={() => this.deleteFile(file.key)} />
+            <Button basic color='grey' icon='file' content={`${file.original_filename} (12.3 MB)`} as='a' href={`/api/requests/${getRequestId()}/files/${file.key}/content`} />
+            <Button icon='linkify' title="Copy link" onClick={() => this.copyLink(file.key)} />
+            <Button color='red' icon='delete' title="Delete file" onClick={() => this.deleteFile(file.key)} />
           </ButtonGroup>
         ))}
         <Button basic icon='attach' content='Attach files' className="mt-10" onClick={() => this.filePickerCallback(() => {}, "", "file")} />
@@ -406,6 +445,8 @@ export class RichEditorWithFiles extends Component {
 RichEditorWithFiles.propTypes = {
   initialValue: PropTypes.string,
   inputValue: PropTypes.string,
+  files: PropTypes.array,
+  setFiles: PropTypes.func,
   id: PropTypes.string,
   disabled: PropTypes.bool,
   onChange: PropTypes.func,
@@ -421,6 +462,8 @@ RichEditorWithFiles.defaultProps = {
   minHeight: 250,
   initialValue: "",
   inputValue: "",
+  files: [],
+  setFiles: undefined,
   id: undefined,
   disabled: undefined,
   onChange: undefined,
