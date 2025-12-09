@@ -21,6 +21,7 @@ import "tinymce/plugins/lists";
 import "tinymce/plugins/wordcount";
 import PropTypes from "prop-types";
 import { ButtonGroup, Button } from 'semantic-ui-react'
+import { humanReadableBytes } from "../utils/humanReadableBytes";
 
 // Make content inside the editor look identical to how we will render it across the site.
 // TinyMCE runs within an iframe, so we cannot style it with page-wide CSS styles as normal.
@@ -455,7 +456,7 @@ export class RichEditorWithFiles extends Component {
         />
         {this.props.files.map((file) => (
           <ButtonGroup key={file.key} floated='left' className="mr-10 mt-10">
-            <Button basic color='grey' icon='file' content={`${file.original_filename} (12.3 MB)`} as='a' href={`/api/requests/${getRequestId()}/files/${file.key}/content`} />
+            <Button basic color='grey' icon='file' content={`${file.original_filename} (${humanReadableBytes(parseInt(file.size, 10), true)})`} as='a' href={`/api/requests/${getRequestId()}/files/${file.key}/content`} />
             <Button icon='linkify' title="Copy link" onClick={() => this.copyLink(file.key)} />
             <Button color='red' icon='delete' title="Delete file" onClick={() => this.deleteFile(file.key)} />
           </ButtonGroup>
