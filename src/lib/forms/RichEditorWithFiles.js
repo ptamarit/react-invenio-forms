@@ -47,7 +47,6 @@ blockquote > blockquote {
 }
 `;
 
-// function from https://www.w3schools.com/js/js_cookies.asp
 function getCookie(cname) {
   let name = cname + "=";
   let decodedCookie = decodeURIComponent(document.cookie);
@@ -64,7 +63,7 @@ function getCookie(cname) {
   return "";
 }
 
-// TODO: Hacky method for prototype. Pass this via props/state.
+// TODO: Use nested_links_item
 function getRequestId() {
   const prefix = "/requests/";
   const url = window.location.href;
@@ -104,9 +103,9 @@ export class RichEditorWithFiles extends Component {
     // this.setState({
     //   files: this.state.files.filter(file => file.key !== fileKey)
     // });
-    this.props.setFiles({
-      files: this.props.files.filter(file => file.key !== fileKey)
-    });
+    this.props.setFiles(
+      this.props.files.filter(file => file.key !== fileKey)
+    );
   };
 
   /**
@@ -454,7 +453,7 @@ export class RichEditorWithFiles extends Component {
           onEditorChange={onEditorChange}
           onInit={onInit}
         />
-        {this.props.files.map((file) => (
+        {files.map((file) => (
           <ButtonGroup key={file.key} floated='left' className="mr-10 mt-10">
             <Button basic color='grey' icon='file' content={`${file.original_filename} (${humanReadableBytes(parseInt(file.size, 10), true)})`} as='a' href={`/api/requests/${getRequestId()}/files/${file.key}/content`} />
             <Button icon='linkify' title="Copy link" onClick={() => this.copyLink(file.key)} />
@@ -481,6 +480,9 @@ RichEditorWithFiles.propTypes = {
   onInit: PropTypes.func,
   minHeight: PropTypes.number,
   editorConfig: PropTypes.object,
+  // initialFiles: PropTypes.array,
+  // inputFiles: PropTypes.array,
+  // onFilesChange: PropTypes.func,
 };
 
 RichEditorWithFiles.defaultProps = {
@@ -497,4 +499,9 @@ RichEditorWithFiles.defaultProps = {
   onFocus: undefined,
   onInit: undefined,
   editorConfig: undefined,
+  // // initialFiles: [],
+  // initialFiles: undefined,
+  // // inputFiles: [],
+  // inputFiles: undefined,
+  // onFilesChange: undefined,
 };
