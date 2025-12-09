@@ -19,6 +19,7 @@ import "tinymce/plugins/image";
 import "tinymce/plugins/link";
 import "tinymce/plugins/lists";
 import "tinymce/plugins/wordcount";
+import "tinymce/plugins/preview";
 import PropTypes from "prop-types";
 import { ButtonGroup, Button } from 'semantic-ui-react'
 import { humanReadableBytes } from "../utils/humanReadableBytes";
@@ -391,12 +392,13 @@ export class RichEditorWithFiles extends Component {
         "lists",
         "table",
         "wordcount",
+        "preview",
       ],
       contextmenu: false,
       toolbar:
-        // "blocks | bold italic link codesample blockquote image table | bullist numlist | outdent indent | wordcount | undo redo | code",
+        // "custom_preview | blocks | bold italic link codesample blockquote image table | bullist numlist | outdent indent | wordcount | undo redo | code",
         // Version with links and images separated:
-        "blocks | bold italic codesample blockquote table | bullist numlist | outdent indent | link image attach | wordcount | undo redo | code",
+        "custom_preview | blocks | bold italic codesample blockquote table | bullist numlist | outdent indent | link image attach | wordcount | undo redo | code",
       autoresize_bottom_margin: 20,
       block_formats: "Paragraph=p; Header 1=h1; Header 2=h2; Header 3=h3",
       table_advtab: false,
@@ -434,6 +436,22 @@ export class RichEditorWithFiles extends Component {
           icon: 'browse',
           tooltip: 'Attach files',
           onAction: () => this.filePickerCallback(() => {}, "", "file"),
+        });
+        editor.ui.registry.addButton("custom_preview", {
+          icon: "preview",
+          text: "Preview",
+          context: "any",
+          onAction: () => {
+            editor.execCommand("mcePreview");
+            const dialog = document.querySelector(".tox-dialog");
+            if (dialog) {
+              const iframe = dialog.querySelector("iframe");
+              // Handle iframe load to render MathJax by passing the iframe document body to MathJax.typesetPromise
+              iframe.onload = () => {
+                window.MathJax?.typesetPromise([iframe.contentDocument.body]);
+              };
+            }
+          },
         });
       },
       ...editorConfig,
