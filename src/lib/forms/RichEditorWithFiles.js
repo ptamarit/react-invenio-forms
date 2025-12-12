@@ -419,6 +419,10 @@ export class RichEditorWithFiles extends Component {
       images_reuse_filename: true,
       // image_title: true,
       images_upload_handler: this.imagesUploadHandler,
+      // TODO: What about using files_upload_handler (similar to images_upload_handler)
+      //       in addition or instead of file_picker_callback?
+      //       There's also a link_uploadtab option similar to image_uploadtab,
+      //       so we could have them both enabled (which is the default when configured?)
       // We do not implement the file picker type `media` since we do not enable the Media plugin/button.
       file_picker_types: "file image",
       // file_picker_types: 'image',
