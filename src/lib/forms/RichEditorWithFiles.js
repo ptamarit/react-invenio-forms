@@ -258,9 +258,11 @@ export class RichEditorWithFiles extends Component {
           // TODO: Do not use the API endpoint.
           const location = `/api/requests/${getRequestId()}/files/${json.key}/content`;
           if (meta.filetype === "file") {
-            callback(location, { text: json.original_filename });
+            callback(location, { text: json.metadata.original_filename });
           } else if (meta.filetype === "image") {
-            callback(location, { alt: `Description of ${json.original_filename}` });
+            callback(location, {
+              alt: `Description of ${json.metadata.original_filename}`,
+            });
           } else {
             // This should not happen, since `file_picker_types` is set to only support `file` and `image`.
             callback(location);
@@ -353,12 +355,12 @@ export class RichEditorWithFiles extends Component {
     ];
     const list = this.props.files
       .filter((file) => {
-        const filename = file.original_filename;
+        const filename = file.metadata.original_filename;
         const extension = filename.slice(filename.lastIndexOf(".") + 1).toLowerCase();
         return imageExtensions.includes(extension);
       })
       .map((file) => ({
-        title: file.original_filename,
+        title: file.metadata.original_filename,
         value: `/api/requests/${requestId}/files/${file.key}/content`,
       }));
     return list.length > 0 ? list : [{ title: "NA", value: "NA" }];
@@ -367,7 +369,7 @@ export class RichEditorWithFiles extends Component {
   getLinkList = () => {
     const requestId = getRequestId();
     const list = this.props.files.map((file) => ({
-      title: file.original_filename,
+      title: file.metadata.original_filename,
       value: `/api/requests/${requestId}/files/${file.key}/content`,
     }));
     return list.length > 0 ? list : [{ title: "NA", value: "NA" }];
@@ -493,7 +495,7 @@ export class RichEditorWithFiles extends Component {
               basic
               color="grey"
               icon="file"
-              content={`${file.original_filename} (${humanReadableBytes(
+              content={`${file.metadata.original_filename} (${humanReadableBytes(
                 parseInt(file.size, 10),
                 true
               )})`}
