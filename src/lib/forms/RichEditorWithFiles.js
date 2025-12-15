@@ -93,7 +93,15 @@ export class RichEditorWithFiles extends Component {
     //     json,
     //   ]
     // });
-    this.props.setFiles([...this.props.files, json]);
+    this.props.setFiles([
+      ...this.props.files,
+      {
+        "file_id": json.id,
+        "key": json.key,
+        "original_filename": json.metadata.original_filename,
+        "size": json.size,
+        "mimetype": json.mimetype,
+      }]);
   };
 
   removeFileFromList = (fileKey) => {
@@ -307,34 +315,40 @@ export class RichEditorWithFiles extends Component {
 
   deleteFile = (fileKey) => {
     console.log("deleteFile");
-    const xhr = new XMLHttpRequest();
-    // xhr.withCredentials = true; // TODO: Needed?
-    // TODO: Use axios to include the CSRF token automatically?
-    xhr.open("DELETE", `/api/requests/${getRequestId()}/files/${fileKey}`);
-    xhr.setRequestHeader("X-CSRFToken", getCookie("csrftoken"));
-    // xhr.setRequestHeader('X-CSRF-TOKEN', window.csrfToken); // manually set header
+    if (this.props.filesImmediateDeletion) {
 
-    xhr.onload = () => {
-      if (xhr.status === 403) {
-        console.error({ message: "HTTP Error: " + xhr.status, remove: true });
-        return;
-      }
+      const xhr = new XMLHttpRequest();
+      // xhr.withCredentials = true; // TODO: Needed?
+      // TODO: Use axios to include the CSRF token automatically?
+      xhr.open("DELETE", `/api/requests/${getRequestId()}/files/${fileKey}`);
+      xhr.setRequestHeader("X-CSRFToken", getCookie("csrftoken"));
+      // xhr.setRequestHeader('X-CSRF-TOKEN', window.csrfToken); // manually set header
 
-      if (xhr.status < 200 || xhr.status >= 300) {
-        console.error("HTTP Error: " + xhr.status);
-        return;
-      }
+      xhr.onload = () => {
+        if (xhr.status === 403) {
+          console.error({ message: "HTTP Error: " + xhr.status, remove: true });
+          return;
+        }
 
+        if (xhr.status < 200 || xhr.status >= 300) {
+          console.error("HTTP Error: " + xhr.status);
+          return;
+        }
+
+        this.removeFileFromList(fileKey);
+      };
+
+      xhr.onerror = () => {
+        console.error(
+          "File deletion failed due to a XHR Transport error. Code: " + xhr.status
+        );
+      };
+
+      xhr.send();
+
+    } else {
       this.removeFileFromList(fileKey);
-    };
-
-    xhr.onerror = () => {
-      console.error(
-        "File deletion failed due to a XHR Transport error. Code: " + xhr.status
-      );
-    };
-
-    xhr.send();
+    }
   };
 
   getImageList = () => {
@@ -355,12 +369,12 @@ export class RichEditorWithFiles extends Component {
     ];
     const list = this.props.files
       .filter((file) => {
-        const filename = file.metadata.original_filename;
+        const filename = file.original_filename;
         const extension = filename.slice(filename.lastIndexOf(".") + 1).toLowerCase();
         return imageExtensions.includes(extension);
       })
       .map((file) => ({
-        title: file.metadata.original_filename,
+        title: file.original_filename,
         value: `/api/requests/${requestId}/files/${file.key}/content`,
       }));
     return list.length > 0 ? list : [{ title: "NA", value: "NA" }];
@@ -369,7 +383,7 @@ export class RichEditorWithFiles extends Component {
   getLinkList = () => {
     const requestId = getRequestId();
     const list = this.props.files.map((file) => ({
-      title: file.metadata.original_filename,
+      title: file.original_filename,
       value: `/api/requests/${requestId}/files/${file.key}/content`,
     }));
     return list.length > 0 ? list : [{ title: "NA", value: "NA" }];
@@ -451,7 +465,7 @@ export class RichEditorWithFiles extends Component {
       image_uploadtab: false,
       setup: (editor) => {
         editor.ui.registry.addButton("attach", {
-          icon: "browse",
+          icon: "upload",
           tooltip: "Attach files",
           onAction: () => this.filePickerCallback(() => {}, "", "file"),
         });
@@ -495,7 +509,7 @@ export class RichEditorWithFiles extends Component {
               basic
               color="grey"
               icon="file"
-              content={`${file.metadata.original_filename} (${humanReadableBytes(
+              content={`${file.original_filename} (${humanReadableBytes(
                 parseInt(file.size, 10),
                 true
               )})`}
@@ -532,6 +546,7 @@ RichEditorWithFiles.propTypes = {
   inputValue: PropTypes.string,
   files: PropTypes.array,
   setFiles: PropTypes.func,
+  filesImmediateDeletion: PropTypes.bool,
   id: PropTypes.string,
   disabled: PropTypes.bool,
   onChange: PropTypes.func,
@@ -552,6 +567,8 @@ RichEditorWithFiles.defaultProps = {
   inputValue: "",
   files: [],
   setFiles: undefined,
+  // TODO: Not sure what's the best default here.
+  filesImmediateDeletion: true,
   id: undefined,
   disabled: undefined,
   onChange: undefined,
