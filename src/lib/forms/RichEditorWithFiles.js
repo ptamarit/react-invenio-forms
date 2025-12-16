@@ -21,7 +21,7 @@ import "tinymce/plugins/lists";
 import "tinymce/plugins/wordcount";
 import "tinymce/plugins/preview";
 import PropTypes from "prop-types";
-import { ButtonGroup, Button } from "semantic-ui-react";
+import { Button, Label } from "semantic-ui-react";
 import { humanReadableBytes } from "../utils/humanReadableBytes";
 
 // Make content inside the editor look identical to how we will render it across the site.
@@ -189,7 +189,11 @@ export class RichEditorWithFiles extends Component {
     input.setAttribute("type", "file");
     // If the file picker is called from the Image dialog, only allow to upload images (allow everything from the Link dialog).
     if (meta.filetype === "image") {
-      input.setAttribute("accept", "image/*");
+      // Media types list based on extensions taken from: https://www.tiny.cloud/docs/tinymce/latest/image/#images_file_types
+      // We could accept "image/*", but then we would let users upload an SVG from the image upload dialog,
+      // let the user inline the SVG, but this would not work, since we are forbidding the rendering of inline SVG for security reasons
+      // (see MIMETYPE_PLAINTEXT in invenio_files_rest).
+      input.setAttribute("accept", "image/jpeg, image/png, image/gif, image/bmp, image/webp");
     }
 
     //
@@ -313,7 +317,8 @@ export class RichEditorWithFiles extends Component {
     }
   };
 
-  deleteFile = (fileKey) => {
+  deleteFile = (event, fileKey) => {
+    event.preventDefault();
     console.log("deleteFile");
     if (this.props.filesImmediateDeletion) {
 
@@ -503,7 +508,7 @@ export class RichEditorWithFiles extends Component {
           onEditorChange={onEditorChange}
           onInit={onInit}
         />
-        {files.map((file) => (
+        {/* {files.map((file) => (
           <ButtonGroup key={file.key} floated="left" className="mr-10 mt-10">
             <Button
               basic
@@ -528,14 +533,66 @@ export class RichEditorWithFiles extends Component {
               onClick={() => this.deleteFile(file.key)}
             />
           </ButtonGroup>
+        ))} */}
+        {files.map((file) => (
+          // <Icon name='delete' />
+          // <Icon name='close' />
+          // const filesList = files?.map((file) => (
+          //   <Label as="a" key={file.key} className="mr-10 mt-10">
+          //     <Icon name="file" />
+          //     filename.ext (12.3 MB)
+          //   </Label>
+          // ));
+            <Label
+              key={file.key}
+              className="no-text-decoration mr-5 mt-5"
+              icon="file"
+              content={`${file.original_filename} (${humanReadableBytes(
+                parseInt(file.size, 10),
+                true
+              )})`}
+              as="a"
+              href={`/api/requests/${getRequestId()}/files/${file.key}/content`}
+              // color="red"
+              // title="Delete file"
+              onRemove={(event) => this.deleteFile(event, file.key)}
+            />
         ))}
-        <Button
-          basic
-          icon="attach"
-          content="Attach files"
-          className="mt-10"
-          onClick={() => this.filePickerCallback(() => {}, "", "file")}
-        />
+        {/* {files.map((file) => (
+          // const filesList = files?.map((file) => (
+          //   <Label as="a" key={file.key} className="mr-10 mt-10">
+          //     <Icon name="file" />
+          //     filename.ext (12.3 MB)
+          //   </Label>
+          // ));
+            <Label
+              key={file.key}
+              className="mr-10 mt-10"
+              // color="red"
+              // title="Delete file"
+              // onRemove={() => this.deleteFile(file.key)}
+            >
+              <Icon name="file" />
+              <a href={`/api/requests/${getRequestId()}/files/${file.key}/content`}>
+                NEW{`${file.original_filename} (${humanReadableBytes(
+                  parseInt(file.size, 10),
+                  true
+                )})`}
+              </a>
+              <Icon name="delete" onClick={() => this.deleteFile(file.key)} />
+            </Label>
+        ))} */}
+        <div>
+          <Button
+            basic
+            size="small"
+            compact
+            icon="attach"
+            content="Attach files"
+            className="mt-5"
+            onClick={() => this.filePickerCallback(() => {}, "", "file")}
+          />
+        </div>
       </>
     );
   }
