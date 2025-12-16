@@ -394,6 +394,31 @@ export class RichEditorWithFiles extends Component {
     return list.length > 0 ? list : [{ title: "NA", value: "NA" }];
   };
 
+  registerCustomPreviewButton = (editor) => {
+    const customPreviewTitle = "Preview math equations";
+    editor.ui.registry.addButton("custom_preview", {
+      text: "√x",
+      tooltip: customPreviewTitle,
+      context: "any",
+      onAction: () => {
+        editor.execCommand("mcePreview");
+        const dialog = document.querySelector(".tox-dialog");
+        if (dialog) {
+          // Change the title
+          const title = dialog.querySelector(".tox-dialog__title");
+          if (title) {
+            title.textContent = customPreviewTitle; // Your custom title
+          }
+          const iframe = dialog.querySelector("iframe");
+          // Handle iframe load to render MathJax by passing the iframe document body to MathJax.typesetPromise
+          iframe.onload = () => {
+            window.MathJax?.typesetPromise([iframe.contentDocument.body]);
+          };
+        }
+      },
+    });
+  };
+
   render() {
     const {
       id,
@@ -429,9 +454,9 @@ export class RichEditorWithFiles extends Component {
       ],
       contextmenu: false,
       toolbar:
-        // "custom_preview | blocks | bold italic link codesample blockquote image table | bullist numlist | outdent indent | wordcount | undo redo | code",
+        // "blocks | bold italic link codesample blockquote image table | bullist numlist | outdent indent | wordcount | undo redo | code | custom_preview",
         // Version with links and images separated:
-        "custom_preview | blocks | bold italic codesample blockquote table | bullist numlist | outdent indent | link image attach | wordcount | undo redo | code",
+        "blocks | bold italic codesample blockquote table | bullist numlist | outdent indent | link image attach | wordcount | undo redo | code | custom_preview",
       autoresize_bottom_margin: 20,
       block_formats: "Paragraph=p; Header 1=h1; Header 2=h2; Header 3=h3",
       table_advtab: false,
@@ -469,26 +494,11 @@ export class RichEditorWithFiles extends Component {
       // Moreover, the link plugin does not have a similar tab, so disabling it for consistency.
       image_uploadtab: false,
       setup: (editor) => {
+        this.registerCustomPreviewButton(editor);
         editor.ui.registry.addButton("attach", {
           icon: "upload",
           tooltip: "Attach files",
           onAction: () => this.filePickerCallback(() => {}, "", "file"),
-        });
-        editor.ui.registry.addButton("custom_preview", {
-          icon: "preview",
-          text: "Preview",
-          context: "any",
-          onAction: () => {
-            editor.execCommand("mcePreview");
-            const dialog = document.querySelector(".tox-dialog");
-            if (dialog) {
-              const iframe = dialog.querySelector("iframe");
-              // Handle iframe load to render MathJax by passing the iframe document body to MathJax.typesetPromise
-              iframe.onload = () => {
-                window.MathJax?.typesetPromise([iframe.contentDocument.body]);
-              };
-            }
-          },
         });
       },
       ...editorConfig,
