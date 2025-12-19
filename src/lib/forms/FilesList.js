@@ -24,8 +24,7 @@ export class FilesList extends Component {
               true
             )})`}
             as="a"
-            // href={`/api/requests/${getRequestId()}/files/${file.key}/content`}
-            href={`/api/requests/TODO_REQUEST_ID_URL_VIA_LINKS/files/${file.key}/content`}
+            href={file.download_html}
             // color="red"
             // title="Delete file"
             onRemove={

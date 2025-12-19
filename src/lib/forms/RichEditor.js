@@ -48,6 +48,7 @@ blockquote > blockquote {
 }
 `;
 
+/*
 function getCookie(cname) {
   let name = cname + "=";
   let decodedCookie = decodeURIComponent(document.cookie);
@@ -63,8 +64,10 @@ function getCookie(cname) {
   }
   return "";
 }
+*/
 
 // TODO: Use nested_links_item
+/*
 function getRequestId() {
   const prefix = "/requests/";
   const url = window.location.href;
@@ -73,6 +76,7 @@ function getRequestId() {
   const end = start + 36;
   return url.substring(start, end);
 }
+*/
 
 export class RichEditor extends Component {
   // constructor(props) {
@@ -92,9 +96,9 @@ export class RichEditor extends Component {
   };
   */
 
-  onFileUploadEditor = async (filename, payload) => {
+  onFileUploadEditor = async (filename, payload, options) => {
     console.log("onFileUploadEditor");
-    const json = await this.props.onFileUpload(filename, payload);
+    const json = await this.props.onFileUpload(filename, payload, options);
     // console.log({json});
     this.props.onFilesChange([
       ...this.props.files,
@@ -104,78 +108,114 @@ export class RichEditor extends Component {
         original_filename: json.data.metadata.original_filename,
         size: json.data.size,
         mimetype: json.data.mimetype,
+        // TODO: Switch to download_html once the non-API URL works.
+        download_html: json.data.links.content,
       },
     ]);
     return json;
-  }
+  };
 
   onFileDeleteEditor = async (file) => {
     console.log("onFileDeleteEditor");
     if (this.props.onFileDelete) {
       await this.props.onFileDelete(file);
     }
-    this.props.onFilesChange(this.props.files.filter((fileFromList) => fileFromList.key !== file.key));
+    this.props.onFilesChange(
+      this.props.files.filter((fileFromList) => fileFromList.key !== file.key)
+    );
   };
-
 
   /**
    * This function is called when a user drag-n-drops an image onto the editor text area.
    */
-  imagesUploadHandler = (blobInfo, progress) =>
-    new Promise((resolve, reject) => {
-      console.log("imagesUploadHandler");
-      const xhr = new XMLHttpRequest();
-      // xhr.withCredentials = true; // TODO: Needed?
-      const filename = blobInfo.filename();
-      // TODO: Use axios to include the CSRF token automatically?
-      xhr.open("PUT", `/api/requests/${getRequestId()}/files/upload/${filename}`);
-      xhr.setRequestHeader("X-CSRFToken", getCookie("csrftoken"));
-      // xhr.setRequestHeader('X-CSRF-TOKEN', window.csrfToken); // manually set header
+  // imagesUploadHandlerOld = (blobInfo, progress) =>
+  //   new Promise((resolve, reject) => {
+  //     console.log("imagesUploadHandler");
+  //     const xhr = new XMLHttpRequest();
+  //     // xhr.withCredentials = true; // TODO: Needed?
+  //     const filename = blobInfo.filename();
+  //     // TODO: Use axios to include the CSRF token automatically?
+  //     xhr.open("PUT", `/api/requests/${getRequestId()}/files/upload/${filename}`);
+  //     xhr.setRequestHeader("X-CSRFToken", getCookie("csrftoken"));
+  //     // xhr.setRequestHeader('X-CSRF-TOKEN', window.csrfToken); // manually set header
 
-      xhr.upload.onprogress = (e) => {
-        progress((e.loaded / e.total) * 100);
-      };
+  //     xhr.upload.onprogress = (e) => {
+  //       progress((e.loaded / e.total) * 100);
+  //     };
 
-      xhr.onload = () => {
-        if (xhr.status === 403) {
-          reject({ message: "HTTP Error: " + xhr.status, remove: true });
-          return;
-        }
+  //     xhr.onload = () => {
+  //       if (xhr.status === 403) {
+  //         reject({ message: "HTTP Error: " + xhr.status, remove: true });
+  //         return;
+  //       }
 
-        if (xhr.status < 200 || xhr.status >= 300) {
-          reject("HTTP Error: " + xhr.status);
-          return;
-        }
+  //       if (xhr.status < 200 || xhr.status >= 300) {
+  //         reject("HTTP Error: " + xhr.status);
+  //         return;
+  //       }
 
-        const json = JSON.parse(xhr.responseText);
+  //       const json = JSON.parse(xhr.responseText);
 
-        // if (!json || typeof json.location != 'string') {
-        if (!json) {
-          reject("Invalid JSON: " + xhr.responseText);
-          return;
-        }
+  //       // if (!json || typeof json.location != 'string') {
+  //       if (!json) {
+  //         reject("Invalid JSON: " + xhr.responseText);
+  //         return;
+  //       }
 
-        this.addFileToList(json);
+  //       console.log({ json });
 
-        // TODO: Do not use the API endpoint.
-        resolve(`/api/requests/${getRequestId()}/files/${json.key}/content`);
-      };
+  //       // this.addFileToList(json);
+  //       this.props.onFilesChange([
+  //         ...this.props.files,
+  //         {
+  //           file_id: json.id,
+  //           key: json.key,
+  //           original_filename: json.metadata.original_filename,
+  //           size: json.size,
+  //           mimetype: json.mimetype,
+  //           // TODO: Switch to download_html once the non-API URL works.
+  //           download_html: json.links.content,
+  //         },
+  //       ]);
 
-      xhr.onerror = () => {
-        reject("Image upload failed due to a XHR Transport error. Code: " + xhr.status);
-      };
+  //       // TODO: Do not use the API endpoint.
+  //       // TODO: Switch to download_html once the non-API URL works.
+  //       resolve(json.links.content);
+  //     };
 
-      // const formData = new FormData();
-      // formData.append('file', blobInfo.blob(), blobInfo.filename());
-      // xhr.send(formData);
+  //     xhr.onerror = () => {
+  //       reject("Image upload failed due to a XHR Transport error. Code: " + xhr.status);
+  //     };
 
-      // As in https://inveniordm.docs.cern.ch/reference/rest_api_drafts_records/#upload-a-draft-files-content
-      // The content-type should always be `application/octet-stream`.
+  //     // const formData = new FormData();
+  //     // formData.append('file', blobInfo.blob(), blobInfo.filename());
+  //     // xhr.send(formData);
 
-      xhr.setRequestHeader("Content-Type", "application/octet-stream");
-      const blob = blobInfo.blob();
-      xhr.send(blob);
+  //     // As in https://inveniordm.docs.cern.ch/reference/rest_api_drafts_records/#upload-a-draft-files-content
+  //     // The content-type should always be `application/octet-stream`.
+
+  //     xhr.setRequestHeader("Content-Type", "application/octet-stream");
+  //     const blob = blobInfo.blob();
+  //     xhr.send(blob);
+  //   });
+
+  /**
+   * This function is called when a user drag-n-drops an image onto the editor text area.
+   */
+  imagesUploadHandler = async (blobInfo, progress) => {
+    const filename = blobInfo.filename();
+    const payload = blobInfo.blob();
+
+    const json = await this.onFileUploadEditor(filename, payload, {
+      onUploadProgress: ({ loaded, total }) =>
+        progress(Math.round((loaded / total) * 100)),
     });
+    progress(100);
+
+    // TODO: Do not use the API endpoint.
+    // TODO: Switch to download_html once the non-API URL works.
+    return json.data.links.content;
+  };
 
   /**
    * This function is called when a a user clicks on the upload icons in the Link or Image dialog.
@@ -204,10 +244,11 @@ export class RichEditor extends Component {
       var reader = new FileReader();
       reader.onload = async function () {
         const json = await localRefOnFileUploadEditor(filename, reader.result);
-        console.log({json});
+        console.log({ json });
 
         // TODO: Do not use the API endpoint.
-        const location = `/api/requests/${getRequestId()}/files/${json.data.key}/content`;
+        // TODO: Switch to download_html once the non-API URL works.
+        const location = json.data.links.content;
         if (meta.filetype === "file") {
           callback(location, { text: json.data.metadata.original_filename });
         } else if (meta.filetype === "image") {
@@ -243,6 +284,7 @@ export class RichEditor extends Component {
       "bmp",
       "webp",
     ];
+    console.log(this.props.files);
     const list = this.props.files
       .filter((file) => {
         const filename = file.original_filename;
@@ -251,7 +293,8 @@ export class RichEditor extends Component {
       })
       .map((file) => ({
         title: file.original_filename,
-        value: `/api/requests/TODO_REQUEST_ID_URL_VIA_LINKS/files/${file.key}/content`,
+        // value: `/api/requests/TODO_REQUEST_ID_URL_VIA_LINKS/files/${file.key}/content`,
+        value: file.download_html,
       }));
     return list.length > 0 ? list : [{ title: "NA", value: "NA" }];
   };
@@ -260,7 +303,8 @@ export class RichEditor extends Component {
     // const requestId = getRequestId();
     const list = this.props.files.map((file) => ({
       title: file.original_filename,
-      value: `/api/requests/TODO_REQUEST_ID_URL_VIA_LINKS/files/${file.key}/content`,
+      // value: `/api/requests/TODO_REQUEST_ID_URL_VIA_LINKS/files/${file.key}/content`,
+      value: file.download_html,
     }));
     return list.length > 0 ? list : [{ title: "NA", value: "NA" }];
   };
