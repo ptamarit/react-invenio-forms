@@ -79,10 +79,11 @@ function getRequestId() {
 */
 
 export class RichEditor extends Component {
-  // constructor(props) {
-  //   super(props);
-  //   // this.state = { files: [] };
-  // }
+  constructor(props) {
+    super(props);
+    this.editorRef = React.createRef();
+    this.editorDialogRef = React.createRef();
+  }
 
   /*
   deleteLogo = async () => {
@@ -218,12 +219,15 @@ export class RichEditor extends Component {
   };
 
   /**
-   * This function is called when a a user clicks on the upload icons in the Link or Image dialog.
+   * This function is called when a a user clicks on the attach toolbar button,
+   * or on the upload icons in the Link and Image popup dialogs.
    */
   filePickerCallback = (callback, value, meta) => {
     const localRefOnFileUploadEditor = this.onFileUploadEditor;
+    const localRefEditorRef = this.editorRef;
+    const localRefEditorDialogRef = this.editorDialogRef;
 
-    var input = document.createElement("input");
+    const input = document.createElement("input");
     input.setAttribute("type", "file");
     // If the file picker is called from the Image dialog, only allow to upload images (allow everything from the Link dialog).
     if (meta.filetype === "image") {
@@ -238,13 +242,35 @@ export class RichEditor extends Component {
     }
 
     input.onchange = (event) => {
-      var file = event.target.files[0];
+      const file = event.target.files[0];
       const filename = file.name;
 
-      var reader = new FileReader();
+      if (this.editorRef.current) {
+        // This is visible via the attach button,
+        // but it is hidden behind the Link and Image popup dialogs.
+        console.log("progress true");
+        this.editorRef.current.setProgressState(true);
+      }
+
+      // Thanks to: https://github.com/tinymce/tinymce/issues/5133
+      if (this.editorDialogRef.current) {
+        console.log("block");
+        this.editorDialogRef.current.block("Uploading file...");
+      }
+
+      const reader = new FileReader();
       reader.onload = async function () {
         const json = await localRefOnFileUploadEditor(filename, reader.result);
         console.log({ json });
+
+        if (localRefEditorRef.current) {
+          console.log("progress false");
+          localRefEditorRef.current.setProgressState(false);
+        }
+        if (localRefEditorDialogRef.current) {
+          console.log("unblock");
+          localRefEditorDialogRef.current.unblock();
+        }
 
         // TODO: Do not use the API endpoint.
         // TODO: Switch to download_html once the non-API URL works.
@@ -343,6 +369,8 @@ export class RichEditor extends Component {
   };
 
   render() {
+    const localRefEditorDialogRef = this.editorDialogRef;
+
     const {
       id,
       initialValue,
@@ -355,8 +383,8 @@ export class RichEditor extends Component {
       inputValue,
       onEditorChange,
       files,
-      onFilesChange,
-      onFileDelete,
+      // onFilesChange,
+      // onFileDelete,
       onInit,
     } = this.props;
     const filesEnabled = files !== undefined;
@@ -390,6 +418,10 @@ export class RichEditor extends Component {
         if (filesEnabled) {
           this.registerAttachButton(editor);
         }
+        editor.on("OpenWindow", function (eventDetails) {
+          console.log("OpenWindow");
+          localRefEditorDialogRef.current = eventDetails.dialog;
+        });
       },
       ...editorConfig,
     };
@@ -426,7 +458,10 @@ export class RichEditor extends Component {
           onFocus={onFocus}
           onChange={onChange}
           onEditorChange={onEditorChange}
-          onInit={onInit}
+          onInit={(event, editor) => {
+            this.editorRef.current = editor;
+            onInit(event, editor);
+          }}
         />
         {filesEnabled && (
           <>
