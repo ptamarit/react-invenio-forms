@@ -1,5 +1,5 @@
 // This file is part of React-Invenio-Forms
-// Copyright (C) 2022 CERN.
+// Copyright (C) 2022-2025 CERN.
 // Copyright (C) 2020 Northwestern University.
 // Copyright (C) 2024 KTH Royal Institute of Technology.
 //
@@ -21,6 +21,8 @@ import "tinymce/plugins/lists";
 import "tinymce/plugins/wordcount";
 import "tinymce/plugins/preview";
 import PropTypes from "prop-types";
+import { Button } from "semantic-ui-react";
+import { FilesList } from "./FilesList";
 
 // Make content inside the editor look identical to how we will render it across the site.
 // TinyMCE runs within an iframe, so we cannot style it with page-wide CSS styles as normal.
@@ -46,7 +48,223 @@ blockquote > blockquote {
 }
 `;
 
+function getCookie(cname) {
+  let name = cname + "=";
+  let decodedCookie = decodeURIComponent(document.cookie);
+  let ca = decodedCookie.split(";");
+  for (let i = 0; i < ca.length; i++) {
+    let c = ca[i];
+    while (c.charAt(0) === " ") {
+      c = c.substring(1);
+    }
+    if (c.indexOf(name) === 0) {
+      return c.substring(name.length, c.length);
+    }
+  }
+  return "";
+}
+
+// TODO: Use nested_links_item
+function getRequestId() {
+  const prefix = "/requests/";
+  const url = window.location.href;
+  const index = url.indexOf(prefix);
+  const start = index + prefix.length;
+  const end = start + 36;
+  return url.substring(start, end);
+}
+
 export class RichEditor extends Component {
+  // constructor(props) {
+  //   super(props);
+  //   // this.state = { files: [] };
+  // }
+
+  /*
+  deleteLogo = async () => {
+    const client = new CommunityApi();
+    await client.deleteLogo(community.id);
+
+    const logoUrlNoCache = noCacheUrl(logoUrl);
+    logoSetUrl(logoUrlNoCache);
+    logoSetUpdated(true);
+    logoSetExists(false);
+  };
+  */
+
+  onFileUploadEditor = async (filename, payload) => {
+    console.log("onFileUploadEditor");
+    const json = await this.props.onFileUpload(filename, payload);
+    // console.log({json});
+    this.props.onFilesChange([
+      ...this.props.files,
+      {
+        file_id: json.data.id,
+        key: json.data.key,
+        original_filename: json.data.metadata.original_filename,
+        size: json.data.size,
+        mimetype: json.data.mimetype,
+      },
+    ]);
+    return json;
+  }
+
+  onFileDeleteEditor = async (file) => {
+    console.log("onFileDeleteEditor");
+    if (this.props.onFileDelete) {
+      await this.props.onFileDelete(file);
+    }
+    this.props.onFilesChange(this.props.files.filter((fileFromList) => fileFromList.key !== file.key));
+  };
+
+
+  /**
+   * This function is called when a user drag-n-drops an image onto the editor text area.
+   */
+  imagesUploadHandler = (blobInfo, progress) =>
+    new Promise((resolve, reject) => {
+      console.log("imagesUploadHandler");
+      const xhr = new XMLHttpRequest();
+      // xhr.withCredentials = true; // TODO: Needed?
+      const filename = blobInfo.filename();
+      // TODO: Use axios to include the CSRF token automatically?
+      xhr.open("PUT", `/api/requests/${getRequestId()}/files/upload/${filename}`);
+      xhr.setRequestHeader("X-CSRFToken", getCookie("csrftoken"));
+      // xhr.setRequestHeader('X-CSRF-TOKEN', window.csrfToken); // manually set header
+
+      xhr.upload.onprogress = (e) => {
+        progress((e.loaded / e.total) * 100);
+      };
+
+      xhr.onload = () => {
+        if (xhr.status === 403) {
+          reject({ message: "HTTP Error: " + xhr.status, remove: true });
+          return;
+        }
+
+        if (xhr.status < 200 || xhr.status >= 300) {
+          reject("HTTP Error: " + xhr.status);
+          return;
+        }
+
+        const json = JSON.parse(xhr.responseText);
+
+        // if (!json || typeof json.location != 'string') {
+        if (!json) {
+          reject("Invalid JSON: " + xhr.responseText);
+          return;
+        }
+
+        this.addFileToList(json);
+
+        // TODO: Do not use the API endpoint.
+        resolve(`/api/requests/${getRequestId()}/files/${json.key}/content`);
+      };
+
+      xhr.onerror = () => {
+        reject("Image upload failed due to a XHR Transport error. Code: " + xhr.status);
+      };
+
+      // const formData = new FormData();
+      // formData.append('file', blobInfo.blob(), blobInfo.filename());
+      // xhr.send(formData);
+
+      // As in https://inveniordm.docs.cern.ch/reference/rest_api_drafts_records/#upload-a-draft-files-content
+      // The content-type should always be `application/octet-stream`.
+
+      xhr.setRequestHeader("Content-Type", "application/octet-stream");
+      const blob = blobInfo.blob();
+      xhr.send(blob);
+    });
+
+  /**
+   * This function is called when a a user clicks on the upload icons in the Link or Image dialog.
+   */
+  filePickerCallback = (callback, value, meta) => {
+    const localRefOnFileUploadEditor = this.onFileUploadEditor;
+
+    var input = document.createElement("input");
+    input.setAttribute("type", "file");
+    // If the file picker is called from the Image dialog, only allow to upload images (allow everything from the Link dialog).
+    if (meta.filetype === "image") {
+      // Media types list based on extensions taken from: https://www.tiny.cloud/docs/tinymce/latest/image/#images_file_types
+      // We could accept "image/*", but then we would let users upload an SVG from the image upload dialog,
+      // let the user inline the SVG, but this would not work, since we are forbidding the rendering of inline SVG for security reasons
+      // (see MIMETYPE_PLAINTEXT in invenio_files_rest).
+      input.setAttribute(
+        "accept",
+        "image/jpeg, image/png, image/gif, image/bmp, image/webp"
+      );
+    }
+
+    input.onchange = (event) => {
+      var file = event.target.files[0];
+      const filename = file.name;
+
+      var reader = new FileReader();
+      reader.onload = async function () {
+        const json = await localRefOnFileUploadEditor(filename, reader.result);
+        console.log({json});
+
+        // TODO: Do not use the API endpoint.
+        const location = `/api/requests/${getRequestId()}/files/${json.data.key}/content`;
+        if (meta.filetype === "file") {
+          callback(location, { text: json.data.metadata.original_filename });
+        } else if (meta.filetype === "image") {
+          callback(location, {
+            alt: `Description of ${json.data.metadata.original_filename}`,
+          });
+        } else {
+          // This should not happen, since `file_picker_types` is set to only support `file` and `image`.
+          callback(location);
+        }
+      };
+      //reader.readAsDataURL(file);
+      reader.readAsArrayBuffer(file);
+    };
+    input.click();
+
+    // TODO: Check https://www.tiny.cloud/docs/tinymce/latest/file-image-upload/#interactive-example
+  };
+
+  getImageList = () => {
+    // const requestId = getRequestId();
+    // TODO: Filter to keep only images (based on extension?).
+    // List taken from: https://www.tiny.cloud/docs/tinymce/latest/image/#images_file_types
+    const imageExtensions = [
+      "jpeg",
+      "jpg",
+      "jpe",
+      "jfi",
+      "jif",
+      "jfif",
+      "png",
+      "gif",
+      "bmp",
+      "webp",
+    ];
+    const list = this.props.files
+      .filter((file) => {
+        const filename = file.original_filename;
+        const extension = filename.slice(filename.lastIndexOf(".") + 1).toLowerCase();
+        return imageExtensions.includes(extension);
+      })
+      .map((file) => ({
+        title: file.original_filename,
+        value: `/api/requests/TODO_REQUEST_ID_URL_VIA_LINKS/files/${file.key}/content`,
+      }));
+    return list.length > 0 ? list : [{ title: "NA", value: "NA" }];
+  };
+
+  getLinkList = () => {
+    // const requestId = getRequestId();
+    const list = this.props.files.map((file) => ({
+      title: file.original_filename,
+      value: `/api/requests/TODO_REQUEST_ID_URL_VIA_LINKS/files/${file.key}/content`,
+    }));
+    return list.length > 0 ? list : [{ title: "NA", value: "NA" }];
+  };
+
   registerCustomPreviewButton = (editor) => {
     const customPreviewTitle = "Preview math equations";
     editor.ui.registry.addButton("custom_preview", {
@@ -71,6 +289,15 @@ export class RichEditor extends Component {
       },
     });
   };
+
+  registerAttachButton = (editor) => {
+    editor.ui.registry.addButton("attach", {
+      icon: "upload",
+      tooltip: "Attach files",
+      onAction: () => this.filePickerCallback(() => {}, "", "file"),
+    });
+  };
+
   render() {
     const {
       id,
@@ -83,9 +310,13 @@ export class RichEditor extends Component {
       editorConfig,
       inputValue,
       onEditorChange,
+      files,
+      onFilesChange,
+      onFileDelete,
       onInit,
     } = this.props;
-    const config = {
+    const filesEnabled = files !== undefined;
+    let config = {
       branding: false,
       menubar: false,
       statusbar: false,
@@ -103,31 +334,73 @@ export class RichEditor extends Component {
         "preview",
       ],
       contextmenu: false,
-      toolbar:
-        "blocks | bold italic link codesample blockquote image table | bullist numlist | outdent indent | wordcount | undo redo | code | custom_preview",
+      toolbar: `blocks | bold italic codesample blockquote table | bullist numlist | outdent indent | link image ${
+        filesEnabled ? "attach " : " "
+      }| wordcount | undo redo | code | custom_preview`,
       autoresize_bottom_margin: 20,
       block_formats: "Paragraph=p; Header 1=h1; Header 2=h2; Header 3=h3",
       table_advtab: false,
       convert_urls: false,
       setup: (editor) => {
         this.registerCustomPreviewButton(editor);
+        if (filesEnabled) {
+          this.registerAttachButton(editor);
+        }
       },
       ...editorConfig,
     };
 
+    if (filesEnabled) {
+      config = {
+        ...config,
+        // It is the backend responsibility to generate unique filenames, so no need for TinyMCE to generate filenames.
+        images_reuse_filename: true,
+        images_upload_handler: this.imagesUploadHandler,
+        // We do not implement the file picker type `media` since we do not enable the Media plugin/button.
+        file_picker_types: "file image",
+        file_picker_callback: this.filePickerCallback,
+        image_list: (success) => {
+          success(this.getImageList());
+        },
+        link_list: (success) => {
+          success(this.getLinkList());
+        },
+        // The separated image upload tab in the Image dialog is a bit redundant with the little upload icon next to the filename.
+        image_uploadtab: false,
+      };
+    }
+
     return (
-      <Editor
-        initialValue={initialValue}
-        value={inputValue}
-        init={config}
-        id={id}
-        disabled={disabled}
-        onBlur={onBlur}
-        onFocus={onFocus}
-        onChange={onChange}
-        onEditorChange={onEditorChange}
-        onInit={onInit}
-      />
+      <>
+        <Editor
+          initialValue={initialValue}
+          value={inputValue}
+          init={config}
+          id={id}
+          disabled={disabled}
+          onBlur={onBlur}
+          onFocus={onFocus}
+          onChange={onChange}
+          onEditorChange={onEditorChange}
+          onInit={onInit}
+        />
+        {filesEnabled && (
+          <>
+            <FilesList files={files} onFileDelete={this.onFileDeleteEditor} />
+            <div>
+              <Button
+                basic
+                size="small"
+                compact
+                icon="attach"
+                content="Attach files"
+                className="mt-5"
+                onClick={() => this.filePickerCallback(() => {}, "", "file")}
+              />
+            </div>
+          </>
+        )}
+      </>
     );
   }
 }
@@ -144,6 +417,10 @@ RichEditor.propTypes = {
   onInit: PropTypes.func,
   minHeight: PropTypes.number,
   editorConfig: PropTypes.object,
+  files: PropTypes.array,
+  onFilesChange: PropTypes.func,
+  onFileUpload: PropTypes.func,
+  onFileDelete: PropTypes.func,
 };
 
 RichEditor.defaultProps = {
@@ -158,4 +435,8 @@ RichEditor.defaultProps = {
   onFocus: undefined,
   onInit: undefined,
   editorConfig: undefined,
+  files: undefined,
+  onFilesChange: undefined,
+  onFileUpload: undefined,
+  onFileDelete: undefined,
 };

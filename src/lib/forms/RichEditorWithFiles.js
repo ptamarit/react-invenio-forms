@@ -96,12 +96,13 @@ export class RichEditorWithFiles extends Component {
     this.props.setFiles([
       ...this.props.files,
       {
-        "file_id": json.id,
-        "key": json.key,
-        "original_filename": json.metadata.original_filename,
-        "size": json.size,
-        "mimetype": json.mimetype,
-      }]);
+        file_id: json.id,
+        key: json.key,
+        original_filename: json.metadata.original_filename,
+        size: json.size,
+        mimetype: json.mimetype,
+      },
+    ]);
   };
 
   removeFileFromList = (fileKey) => {
@@ -193,7 +194,10 @@ export class RichEditorWithFiles extends Component {
       // We could accept "image/*", but then we would let users upload an SVG from the image upload dialog,
       // let the user inline the SVG, but this would not work, since we are forbidding the rendering of inline SVG for security reasons
       // (see MIMETYPE_PLAINTEXT in invenio_files_rest).
-      input.setAttribute("accept", "image/jpeg, image/png, image/gif, image/bmp, image/webp");
+      input.setAttribute(
+        "accept",
+        "image/jpeg, image/png, image/gif, image/bmp, image/webp"
+      );
     }
 
     //
@@ -317,11 +321,9 @@ export class RichEditorWithFiles extends Component {
     }
   };
 
-  deleteFile = (event, fileKey) => {
-    event.preventDefault();
+  deleteFile = (fileKey) => {
     console.log("deleteFile");
     if (this.props.filesImmediateDeletion) {
-
       const xhr = new XMLHttpRequest();
       // xhr.withCredentials = true; // TODO: Needed?
       // TODO: Use axios to include the CSRF token automatically?
@@ -350,7 +352,6 @@ export class RichEditorWithFiles extends Component {
       };
 
       xhr.send();
-
     } else {
       this.removeFileFromList(fileKey);
     }
@@ -553,20 +554,20 @@ export class RichEditorWithFiles extends Component {
           //     filename.ext (12.3 MB)
           //   </Label>
           // ));
-            <Label
-              key={file.key}
-              className="no-text-decoration mr-5 mt-5"
-              icon="file"
-              content={`${file.original_filename} (${humanReadableBytes(
-                parseInt(file.size, 10),
-                true
-              )})`}
-              as="a"
-              href={`/api/requests/${getRequestId()}/files/${file.key}/content`}
-              // color="red"
-              // title="Delete file"
-              onRemove={(event) => this.deleteFile(event, file.key)}
-            />
+          <Label
+            key={file.key}
+            className="no-text-decoration mr-5 mt-5"
+            icon="file"
+            content={`${file.original_filename} (${humanReadableBytes(
+              parseInt(file.size, 10),
+              true
+            )})`}
+            as="a"
+            href={`/api/requests/${getRequestId()}/files/${file.key}/content`}
+            // color="red"
+            // title="Delete file"
+            onRemove={(event) => this.deleteFile(event, file.key)}
+          />
         ))}
         {/* {files.map((file) => (
           // const filesList = files?.map((file) => (
