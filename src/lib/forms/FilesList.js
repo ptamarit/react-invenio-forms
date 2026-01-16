@@ -24,7 +24,7 @@ export class FilesList extends Component {
               true
             )})`}
             as="a"
-            href={file.download_html}
+            href={file.links.download_html}
             // color="red"
             // title="Delete file"
             onRemove={

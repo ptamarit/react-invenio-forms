@@ -109,8 +109,9 @@ export class RichEditor extends Component {
         original_filename: json.data.metadata.original_filename,
         size: json.data.size,
         mimetype: json.data.mimetype,
-        // TODO: Switch to download_html once the non-API URL works.
-        download_html: json.data.links.content,
+        links: {
+          download_html: json.data.links.download_html,
+        }
       },
     ]);
     return json;
@@ -174,14 +175,11 @@ export class RichEditor extends Component {
   //           original_filename: json.metadata.original_filename,
   //           size: json.size,
   //           mimetype: json.mimetype,
-  //           // TODO: Switch to download_html once the non-API URL works.
-  //           download_html: json.links.content,
+  //           download_html: json.links.download_html,
   //         },
   //       ]);
 
-  //       // TODO: Do not use the API endpoint.
-  //       // TODO: Switch to download_html once the non-API URL works.
-  //       resolve(json.links.content);
+  //       resolve(json.links.download_html);
   //     };
 
   //     xhr.onerror = () => {
@@ -213,9 +211,7 @@ export class RichEditor extends Component {
     });
     progress(100);
 
-    // TODO: Do not use the API endpoint.
-    // TODO: Switch to download_html once the non-API URL works.
-    return json.data.links.content;
+    return json.data.links.download_html;
   };
 
   /**
@@ -272,9 +268,7 @@ export class RichEditor extends Component {
           localRefEditorDialogRef.current.unblock();
         }
 
-        // TODO: Do not use the API endpoint.
-        // TODO: Switch to download_html once the non-API URL works.
-        const location = json.data.links.content;
+        const location = json.data.links.download_html;
         if (meta.filetype === "file") {
           callback(location, { text: json.data.metadata.original_filename });
         } else if (meta.filetype === "image") {
@@ -319,7 +313,6 @@ export class RichEditor extends Component {
       })
       .map((file) => ({
         title: file.original_filename,
-        // value: `/api/requests/TODO_REQUEST_ID_URL_VIA_LINKS/files/${file.key}/content`,
         value: file.download_html,
       }));
     return list.length > 0 ? list : [{ title: "NA", value: "NA" }];
@@ -329,7 +322,6 @@ export class RichEditor extends Component {
     // const requestId = getRequestId();
     const list = this.props.files.map((file) => ({
       title: file.original_filename,
-      // value: `/api/requests/TODO_REQUEST_ID_URL_VIA_LINKS/files/${file.key}/content`,
       value: file.download_html,
     }));
     return list.length > 0 ? list : [{ title: "NA", value: "NA" }];
@@ -460,7 +452,7 @@ export class RichEditor extends Component {
           onEditorChange={onEditorChange}
           onInit={(event, editor) => {
             this.editorRef.current = editor;
-            onInit(event, editor);
+            onInit && onInit(event, editor);
           }}
         />
         {filesEnabled && (

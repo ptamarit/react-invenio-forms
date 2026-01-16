@@ -25,7 +25,7 @@ export { TextAreaField } from "./TextAreaField";
 export { RadioField } from "./RadioField";
 export { RichInputField } from "./RichInputField";
 export { RichEditor } from "./RichEditor";
-export { RichEditorWithFiles } from "./RichEditorWithFiles";
+// export { RichEditorWithFiles } from "./RichEditorWithFiles";
 export { ToggleField } from "./ToggleField";
 export * from "./widgets";
 export {
