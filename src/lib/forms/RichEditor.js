@@ -101,8 +101,8 @@ export class RichEditor extends Component {
   };
 
   /**
-   * This function is called when a a user clicks on the attach toolbar button,
-   * or on the upload icons in the Link and Image popup dialogs.
+   * This function is called when a a user clicks on the upload icons
+   * in the Link and Image popup dialogs.
    */
   filePickerCallback = (callback, value, meta) => {
     const localRefOnFileUploadEditor = this.onFileUploadEditor;
@@ -169,6 +169,14 @@ export class RichEditor extends Component {
     input.click();
   };
 
+  /**
+   * This function is called when a a user clicks on the attach files toolbar button,
+   * or on the attach files button next to the files list.
+   */
+  onAttachFiles = () => {
+    this.filePickerCallback(() => {}, "", "file");
+  }
+
   mapToEditorLinkList = (files) => {
     return files.map((file) => ({
       title: file.original_filename,
@@ -232,7 +240,7 @@ export class RichEditor extends Component {
     editor.ui.registry.addButton("attach", {
       icon: "upload",
       tooltip: "Attach files",
-      onAction: () => this.filePickerCallback(() => {}, "", "file"),
+      onAction: () => this.onAttachFiles(),
     });
   };
 
@@ -251,8 +259,6 @@ export class RichEditor extends Component {
       inputValue,
       onEditorChange,
       files,
-      // onFilesChange,
-      // onFileDelete,
       onInit,
     } = this.props;
     const filesEnabled = files !== undefined;
@@ -302,8 +308,8 @@ export class RichEditor extends Component {
         images_upload_handler: this.imagesUploadHandler,
         // We do not implement the file picker type `media` since we do not enable the Media plugin/button.
         file_picker_types: "file image",
-        // This function is called when a a user clicks on the attach toolbar button,
-        // or on the upload icons in the Link and Image popup dialogs.
+        // This function is called when a a user clicks on the upload icons
+        // in the Link and Image popup dialogs.
         file_picker_callback: this.filePickerCallback,
         // Pre-filled link list in the Image popup dialog.
         image_list: (success) => {
@@ -347,7 +353,7 @@ export class RichEditor extends Component {
                 icon="attach"
                 content="Attach files"
                 className="mt-5"
-                onClick={() => this.filePickerCallback(() => {}, "", "file")}
+                onClick={() => this.onAttachFiles()}
               />
             </div>
           </>
