@@ -25,8 +25,6 @@ export class FilesList extends Component {
             )})`}
             as="a"
             href={file.links.download_html}
-            // color="red"
-            // title="Delete file"
             onRemove={
               onFileDelete
                 ? (event) => {

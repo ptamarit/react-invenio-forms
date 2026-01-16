@@ -48,36 +48,6 @@ blockquote > blockquote {
 }
 `;
 
-/*
-function getCookie(cname) {
-  let name = cname + "=";
-  let decodedCookie = decodeURIComponent(document.cookie);
-  let ca = decodedCookie.split(";");
-  for (let i = 0; i < ca.length; i++) {
-    let c = ca[i];
-    while (c.charAt(0) === " ") {
-      c = c.substring(1);
-    }
-    if (c.indexOf(name) === 0) {
-      return c.substring(name.length, c.length);
-    }
-  }
-  return "";
-}
-*/
-
-// TODO: Use nested_links_item
-/*
-function getRequestId() {
-  const prefix = "/requests/";
-  const url = window.location.href;
-  const index = url.indexOf(prefix);
-  const start = index + prefix.length;
-  const end = start + 36;
-  return url.substring(start, end);
-}
-*/
-
 export class RichEditor extends Component {
   constructor(props) {
     super(props);
@@ -85,22 +55,10 @@ export class RichEditor extends Component {
     this.editorDialogRef = React.createRef();
   }
 
-  /*
-  deleteLogo = async () => {
-    const client = new CommunityApi();
-    await client.deleteLogo(community.id);
-
-    const logoUrlNoCache = noCacheUrl(logoUrl);
-    logoSetUrl(logoUrlNoCache);
-    logoSetUpdated(true);
-    logoSetExists(false);
-  };
-  */
-
   onFileUploadEditor = async (filename, payload, options) => {
-    console.log("onFileUploadEditor");
     const json = await this.props.onFileUpload(filename, payload, options);
-    // console.log({json});
+    // Convert the response format when uploading a file,
+    // to the same response format as when retrieving an entity with files.
     this.props.onFilesChange([
       ...this.props.files,
       {
@@ -111,14 +69,13 @@ export class RichEditor extends Component {
         mimetype: json.data.mimetype,
         links: {
           download_html: json.data.links.download_html,
-        }
+        },
       },
     ]);
     return json;
   };
 
   onFileDeleteEditor = async (file) => {
-    console.log("onFileDeleteEditor");
     if (this.props.onFileDelete) {
       await this.props.onFileDelete(file);
     }
@@ -126,77 +83,6 @@ export class RichEditor extends Component {
       this.props.files.filter((fileFromList) => fileFromList.key !== file.key)
     );
   };
-
-  /**
-   * This function is called when a user drag-n-drops an image onto the editor text area.
-   */
-  // imagesUploadHandlerOld = (blobInfo, progress) =>
-  //   new Promise((resolve, reject) => {
-  //     console.log("imagesUploadHandler");
-  //     const xhr = new XMLHttpRequest();
-  //     // xhr.withCredentials = true; // TODO: Needed?
-  //     const filename = blobInfo.filename();
-  //     // TODO: Use axios to include the CSRF token automatically?
-  //     xhr.open("PUT", `/api/requests/${getRequestId()}/files/upload/${filename}`);
-  //     xhr.setRequestHeader("X-CSRFToken", getCookie("csrftoken"));
-  //     // xhr.setRequestHeader('X-CSRF-TOKEN', window.csrfToken); // manually set header
-
-  //     xhr.upload.onprogress = (e) => {
-  //       progress((e.loaded / e.total) * 100);
-  //     };
-
-  //     xhr.onload = () => {
-  //       if (xhr.status === 403) {
-  //         reject({ message: "HTTP Error: " + xhr.status, remove: true });
-  //         return;
-  //       }
-
-  //       if (xhr.status < 200 || xhr.status >= 300) {
-  //         reject("HTTP Error: " + xhr.status);
-  //         return;
-  //       }
-
-  //       const json = JSON.parse(xhr.responseText);
-
-  //       // if (!json || typeof json.location != 'string') {
-  //       if (!json) {
-  //         reject("Invalid JSON: " + xhr.responseText);
-  //         return;
-  //       }
-
-  //       console.log({ json });
-
-  //       // this.addFileToList(json);
-  //       this.props.onFilesChange([
-  //         ...this.props.files,
-  //         {
-  //           file_id: json.id,
-  //           key: json.key,
-  //           original_filename: json.metadata.original_filename,
-  //           size: json.size,
-  //           mimetype: json.mimetype,
-  //           download_html: json.links.download_html,
-  //         },
-  //       ]);
-
-  //       resolve(json.links.download_html);
-  //     };
-
-  //     xhr.onerror = () => {
-  //       reject("Image upload failed due to a XHR Transport error. Code: " + xhr.status);
-  //     };
-
-  //     // const formData = new FormData();
-  //     // formData.append('file', blobInfo.blob(), blobInfo.filename());
-  //     // xhr.send(formData);
-
-  //     // As in https://inveniordm.docs.cern.ch/reference/rest_api_drafts_records/#upload-a-draft-files-content
-  //     // The content-type should always be `application/octet-stream`.
-
-  //     xhr.setRequestHeader("Content-Type", "application/octet-stream");
-  //     const blob = blobInfo.blob();
-  //     xhr.send(blob);
-  //   });
 
   /**
    * This function is called when a user drag-n-drops an image onto the editor text area.
@@ -227,9 +113,11 @@ export class RichEditor extends Component {
     input.setAttribute("type", "file");
     // If the file picker is called from the Image dialog, only allow to upload images (allow everything from the Link dialog).
     if (meta.filetype === "image") {
-      // Media types list based on extensions taken from: https://www.tiny.cloud/docs/tinymce/latest/image/#images_file_types
-      // We could accept "image/*", but then we would let users upload an SVG from the image upload dialog,
-      // let the user inline the SVG, but this would not work, since we are forbidding the rendering of inline SVG for security reasons
+      // List of media types based on list of image extensions taken from:
+      // https://www.tiny.cloud/docs/tinymce/latest/image/#images_file_types
+      //
+      // We could accept "image/*", but then we would let users upload and inline SVG files from the image upload dialog,
+      // but this would not work since we are forbidding the rendering of inline SVG for security reasons
       // (see MIMETYPE_PLAINTEXT in invenio_files_rest).
       input.setAttribute(
         "accept",
@@ -242,29 +130,25 @@ export class RichEditor extends Component {
       const filename = file.name;
 
       if (this.editorRef.current) {
-        // This is visible via the attach button,
-        // but it is hidden behind the Link and Image popup dialogs.
-        console.log("progress true");
+        // This progress state is visible when uploading via the attach button,
+        // but it is hidden behind the Link and Image popup dialogs when using them.
         this.editorRef.current.setProgressState(true);
       }
 
-      // Thanks to: https://github.com/tinymce/tinymce/issues/5133
+      // Progress state visible when uploading via the the Link and Image popup dialogs.
+      // Taken from: https://github.com/tinymce/tinymce/issues/5133
       if (this.editorDialogRef.current) {
-        console.log("block");
         this.editorDialogRef.current.block("Uploading file...");
       }
 
       const reader = new FileReader();
       reader.onload = async function () {
         const json = await localRefOnFileUploadEditor(filename, reader.result);
-        console.log({ json });
 
         if (localRefEditorRef.current) {
-          console.log("progress false");
           localRefEditorRef.current.setProgressState(false);
         }
         if (localRefEditorDialogRef.current) {
-          console.log("unblock");
           localRefEditorDialogRef.current.unblock();
         }
 
@@ -280,18 +164,21 @@ export class RichEditor extends Component {
           callback(location);
         }
       };
-      //reader.readAsDataURL(file);
       reader.readAsArrayBuffer(file);
     };
     input.click();
+  };
 
-    // TODO: Check https://www.tiny.cloud/docs/tinymce/latest/file-image-upload/#interactive-example
+  mapToEditorLinkList = (files) => {
+    return files.map((file) => ({
+      title: file.original_filename,
+      value: file.links.download_html,
+    }));
   };
 
   getImageList = () => {
-    // const requestId = getRequestId();
-    // TODO: Filter to keep only images (based on extension?).
-    // List taken from: https://www.tiny.cloud/docs/tinymce/latest/image/#images_file_types
+    // List of image extensions taken from:
+    // https://www.tiny.cloud/docs/tinymce/latest/image/#images_file_types
     const imageExtensions = [
       "jpeg",
       "jpg",
@@ -304,27 +191,16 @@ export class RichEditor extends Component {
       "bmp",
       "webp",
     ];
-    console.log(this.props.files);
-    const list = this.props.files
-      .filter((file) => {
-        const filename = file.original_filename;
-        const extension = filename.slice(filename.lastIndexOf(".") + 1).toLowerCase();
-        return imageExtensions.includes(extension);
-      })
-      .map((file) => ({
-        title: file.original_filename,
-        value: file.download_html,
-      }));
-    return list.length > 0 ? list : [{ title: "NA", value: "NA" }];
+    const images = this.props.files.filter((file) => {
+      const filename = file.original_filename;
+      const extension = filename.slice(filename.lastIndexOf(".") + 1).toLowerCase();
+      return imageExtensions.includes(extension);
+    });
+    return this.mapToEditorLinkList(images);
   };
 
   getLinkList = () => {
-    // const requestId = getRequestId();
-    const list = this.props.files.map((file) => ({
-      title: file.original_filename,
-      value: file.download_html,
-    }));
-    return list.length > 0 ? list : [{ title: "NA", value: "NA" }];
+    return this.mapToEditorLinkList(this.props.files);
   };
 
   registerCustomPreviewButton = (editor) => {
@@ -411,7 +287,6 @@ export class RichEditor extends Component {
           this.registerAttachButton(editor);
         }
         editor.on("OpenWindow", function (eventDetails) {
-          console.log("OpenWindow");
           localRefEditorDialogRef.current = eventDetails.dialog;
         });
       },
@@ -421,19 +296,25 @@ export class RichEditor extends Component {
     if (filesEnabled) {
       config = {
         ...config,
-        // It is the backend responsibility to generate unique filenames, so no need for TinyMCE to generate filenames.
+        // No need for TinyMCE to generate unique filenames since we delegate this responsibility to the backend.
         images_reuse_filename: true,
+        // This function is called when a user drag-n-drops an image onto the editor text area.
         images_upload_handler: this.imagesUploadHandler,
         // We do not implement the file picker type `media` since we do not enable the Media plugin/button.
         file_picker_types: "file image",
+        // This function is called when a a user clicks on the attach toolbar button,
+        // or on the upload icons in the Link and Image popup dialogs.
         file_picker_callback: this.filePickerCallback,
+        // Pre-filled link list in the Image popup dialog.
         image_list: (success) => {
           success(this.getImageList());
         },
+        // Pre-filled link list in the Link popup dialog.
         link_list: (success) => {
           success(this.getLinkList());
         },
-        // The separated image upload tab in the Image dialog is a bit redundant with the little upload icon next to the filename.
+        // Disabling the separated image upload tab in the Image dialog,
+        // since it is a bit redundant with the little upload icon next to the filename.
         image_uploadtab: false,
       };
     }
